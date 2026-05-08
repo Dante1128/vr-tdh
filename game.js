@@ -335,6 +335,7 @@ function goSelectScreen(){
   $('tl-indicator').classList.add('hidden');
   $('orb-indicator').classList.add('hidden');
   setBoard('¡Bienvenidos a FocusClass VR!');
+  updateActionBtn();
   showTeacherPopup(
     'Elige tu misión:\n[1] Encuentra el Lápiz\n[2] Semáforo del Recreo\n[3] Hora de Clase\n\nESC = explorar libremente',
     9000
@@ -358,6 +359,7 @@ async function goSummary(){
   $('sum-clinic').textContent = `Distractores: ${Metrics.distractors} | Prematuras: ${Metrics.premature}`;
   hideBar(); hideHUD();
   setBoard('Resumen de sesión');
+  updateActionBtn();
   saveSession();
   await generateAiReport();
 }
@@ -376,6 +378,7 @@ function showEnd(taskId, pts, bonus, ok){
   $('end-pts').style.color   = pts+bonus>0?'#2ECC40':'#888';
   const newB=awardBadges(taskId,ok,bonus>0);
   $('end-badge').textContent = newB.length?'🏅 Nueva insignia: '+newB.join(' '):'';
+  updateActionBtn();
   geminiTaskFeedback(taskId, ok, pts);
 }
 
@@ -431,6 +434,7 @@ function startA1(){
   showHUD(); startTimer(90);
   showBar('🔍 Encuentra el LÁPIZ — clic en él o [1][2][3][4]');
   setBoard('Tarea A1 · Atención selectiva');
+  updateActionBtn();
   showTeacherPopup(
     'Busca el LÁPIZ escondido en el aula.\nHay objetos que te distraerán.\nIgnóralos y enfócate. ¡Tienes 90 segundos!',
     8000
@@ -493,6 +497,7 @@ function startB3(){
   showHUD();
   showBar('🚦 Espera el VERDE — ESPACIO solo en verde');
   setBoard('Tarea B3 · Control de impulsos');
+  updateActionBtn();
   showTeacherPopup(
     'Mira el semáforo del recreo.\nPresiona ESPACIO SOLO cuando sea VERDE.\nSi presionas en ROJO, pierdes puntos. ¡Paciencia!',
     8000
@@ -578,6 +583,7 @@ function startC1(){
   showHUD(); startTimer(60);
   showBar('🪑 Inhala y exhala con el orbe — ESPACIO al EXHALAR');
   setBoard('Tarea C1 · Regulación y calma');
+  updateActionBtn();
   showTeacherPopup(
     'Respira con calma junto al orbe.\nCuando el orbe se encoja, presiona ESPACIO para exhalar.\nLa calma es tu superpoder. ¡Tienes 60 segundos!',
     9000
@@ -659,6 +665,56 @@ function stopC1(){
   $('orb-indicator').classList.add('hidden');
 }
 
+// ─── CONTROLES MÓVIL ──────────────────────────────
+const mDir = { fwd:false, bck:false, lft:false, rgt:false };
+const M_SPEED = 0.030;
+
+function mset(dir, val) { mDir[dir] = val; }
+
+function mAction() {
+  initAudio();
+  const btn = $('btn-mobile-action');
+  switch(S.screen) {
+    case 'welcome':  goSelectScreen(); break;
+    case 'C1':       c1Breathe(); break;
+    case 'B3':       b3Press();   break;
+    case 'end':      goSelectScreen(); break;
+    case 'summary':  location.reload(); break;
+  }
+  // feedback visual breve
+  if(btn){ btn.style.background='rgba(255,107,53,.85)'; setTimeout(()=>btn.style.background='',200); }
+}
+
+function updateActionBtn() {
+  const btn = $('btn-mobile-action');
+  if(!btn) return;
+  const labels = {
+    welcome:'▶ Empezar', select:'···',
+    A1:'· Lápiz ·', B3:'¡ AHORA !', C1:'💨 Exhalar',
+    end:'▶ Siguiente', summary:'↺ Nueva', free:'···'
+  };
+  btn.textContent = labels[S.screen] || 'ACCIÓN';
+}
+
+function mobileLoop() {
+  if(mDir.fwd || mDir.bck || mDir.lft || mDir.rgt) {
+    const rig = document.getElementById('rig');
+    const cam = document.getElementById('cam');
+    if(rig && cam) {
+      const yaw = cam.object3D.rotation.y;
+      let dx = 0, dz = 0;
+      if(mDir.fwd){ dx -= Math.sin(yaw)*M_SPEED; dz -= Math.cos(yaw)*M_SPEED; }
+      if(mDir.bck){ dx += Math.sin(yaw)*M_SPEED; dz += Math.cos(yaw)*M_SPEED; }
+      if(mDir.lft){ dx -= Math.cos(yaw)*M_SPEED; dz += Math.sin(yaw)*M_SPEED; }
+      if(mDir.rgt){ dx += Math.cos(yaw)*M_SPEED; dz -= Math.sin(yaw)*M_SPEED; }
+      const p = rig.object3D.position;
+      p.x = Math.max(-5.4, Math.min(5.4, p.x + dx));
+      p.z = Math.max(-4.5, Math.min(4.7, p.z + dz));
+    }
+  }
+  requestAnimationFrame(mobileLoop);
+}
+
 // ─── CLICKS EN OBJETOS 3D ─────────────────────────
 function setupClicks(){
   const wire=(id,fn)=>{ const e=$(id); if(e) e.addEventListener('click',()=>{ initAudio(); fn(); }); };
@@ -679,6 +735,8 @@ document.querySelector('a-scene').addEventListener('loaded', ()=>{
   updateClock();
   setInterval(updateClock, 30000);
   setupClicks();
+  mobileLoop();
+  updateActionBtn();
 });
 
 document.addEventListener('keydown', ()=>initAudio(), {once:true, capture:true});

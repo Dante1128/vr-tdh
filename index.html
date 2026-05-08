@@ -117,6 +117,32 @@
     <button class="teacher-popup-close" onclick="closeTeacherPopup()" title="Cerrar">✕</button>
   </div>
 
+  <!-- ══ CONTROLES MÓVIL ══ -->
+  <div id="mobile-controls">
+    <!-- D-Pad izquierdo -->
+    <div id="dpad">
+      <span></span>
+      <button class="dpad-btn"
+        onpointerdown="mset('fwd',true)"  onpointerup="mset('fwd',false)"
+        onpointercancel="mset('fwd',false)" onpointerleave="mset('fwd',false)">▲</button>
+      <span></span>
+      <button class="dpad-btn"
+        onpointerdown="mset('lft',true)"  onpointerup="mset('lft',false)"
+        onpointercancel="mset('lft',false)" onpointerleave="mset('lft',false)">◀</button>
+      <span class="dpad-center">✛</span>
+      <button class="dpad-btn"
+        onpointerdown="mset('rgt',true)"  onpointerup="mset('rgt',false)"
+        onpointercancel="mset('rgt',false)" onpointerleave="mset('rgt',false)">▶</button>
+      <span></span>
+      <button class="dpad-btn"
+        onpointerdown="mset('bck',true)"  onpointerup="mset('bck',false)"
+        onpointercancel="mset('bck',false)" onpointerleave="mset('bck',false)">▼</button>
+      <span></span>
+    </div>
+    <!-- Botón de acción derecho -->
+    <button id="btn-mobile-action" onpointerdown="mAction()">ACCIÓN</button>
+  </div>
+
 </div>
 
 <!-- ══ ESCENA A-FRAME ══ -->

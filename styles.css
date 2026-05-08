@@ -91,6 +91,12 @@ canvas { display: block; }
   color: #FFF;
   box-shadow: 0 4px 18px rgba(255,107,53,.35);
 }
+.btn-export {
+  background: linear-gradient(135deg, #1A3A5A 0%, #0D2240 100%);
+  color: #7FC8E8;
+  box-shadow: 0 4px 18px rgba(0,100,160,.3);
+  border: 1px solid rgba(127,200,232,.2);
+}
 
 /* ══ HINT / KBD ══ */
 .hint { font-size: .82rem; color: #4A5A6A; margin-top: .85rem; }
@@ -150,12 +156,28 @@ kbd {
 .end-badge { color: #FFD700; font-size: .9rem; min-height: 1.3em; margin-bottom: .9rem; }
 
 /* ══ PANTALLA RESUMEN ══ */
+#screen-summary .modal {
+  overflow-y: auto;
+  max-height: 90vh;
+}
 .sum-row {
   display: flex; align-items: center;
   color: #C8D8E8; font-size: .97rem; font-weight: 600;
   padding: .42rem 0; border-bottom: 1px solid rgba(255,255,255,.06); text-align: left;
 }
 .sum-clinic { font-size: .78rem; color: #3A4A5A; border: none; margin-top: .2rem; }
+
+/* ══ REPORTE IA ══ */
+.sum-ai-report {
+  background: rgba(0,180,216,.06);
+  border: 1px solid rgba(0,180,216,.2);
+  border-radius: 14px;
+  padding: .75rem 1rem;
+  margin: .7rem 0 .9rem;
+  font-size: .86rem; color: #8AC8D8;
+  text-align: left; line-height: 1.7;
+  min-height: 1.5rem;
+}
 
 /* ══ HUD ══ */
 #hud {
@@ -250,6 +272,51 @@ kbd {
   transition: opacity .3s;
 }
 #toast.hidden { display: none; }
+
+/* ══ POPUP PROFESOR ══ */
+.teacher-popup {
+  position: fixed; top: 5.4rem; left: 50%; transform: translateX(-50%);
+  z-index: 30;
+  background: linear-gradient(145deg, rgba(8,18,40,.97) 0%, rgba(14,28,58,.97) 100%);
+  border: 1px solid rgba(200,160,80,.45);
+  border-radius: 20px; padding: 1rem 1rem 1rem 1.1rem;
+  max-width: 450px; width: 87vw;
+  display: flex; align-items: flex-start; gap: .8rem;
+  box-shadow: 0 12px 40px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.05);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+  animation: popupIn .28s cubic-bezier(.22,.68,0,1.2);
+}
+.teacher-popup.hidden { display: none; }
+.teacher-popup::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, #C8A050 25%, #FFD700 55%, #C8A050 80%, transparent);
+  border-radius: 20px 20px 0 0;
+}
+@keyframes popupIn {
+  from { opacity:0; transform:translateX(-50%) translateY(-14px) scale(.93); }
+  to   { opacity:1; transform:translateX(-50%) translateY(0)     scale(1);   }
+}
+.teacher-popup-avatar {
+  font-size: 1.9rem; flex-shrink: 0;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,.5));
+  margin-top: .05rem;
+}
+.teacher-popup-text {
+  flex: 1; font-size: .94rem; font-weight: 700;
+  color: #E8EEF8; line-height: 1.65;
+  white-space: pre-wrap;
+}
+.teacher-popup-close {
+  flex-shrink: 0; background: rgba(255,255,255,.09);
+  border: 1px solid rgba(255,255,255,.12); border-radius: 50%;
+  color: #8A9AB0; cursor: pointer;
+  width: 26px; height: 26px; font-size: .72rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+  margin-top: .05rem;
+}
+.teacher-popup-close:hover { background: rgba(255,255,255,.2); color: #FFF; }
 
 /* ══ LOADING ══ */
 #loading {

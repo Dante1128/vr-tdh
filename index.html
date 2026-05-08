@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>FocusClass VR</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ══ OVERLAY UI ══ -->
+<div id="overlay">
+
+  <div id="loading">
+    <div class="loading-inner">
+      <div class="spinner"></div>
+      <p>Cargando FocusClass VR...</p>
+    </div>
+  </div>
+
+  <div id="screen-welcome" class="screen hidden">
+    <div class="modal">
+      <div class="modal-icon">🎒</div>
+      <h1>FocusClass VR</h1>
+      <p>¡Hola! El profesor ya te espera.<br>Tienes <strong>3 misiones</strong> hoy.</p>
+      <p style="font-size:.85rem;color:#3A5A7A;margin-bottom:1.2rem;">Muévete con <kbd>WASD</kbd> · Mira con el <kbd>ratón</kbd></p>
+      <button class="btn btn-primary" onclick="goSelectScreen()">▶ &nbsp;Empezar sesión</button>
+      <p class="hint">o presiona <kbd>ENTER</kbd></p>
+    </div>
+  </div>
+
+  <div id="screen-select" class="screen hidden">
+    <div class="modal modal-wide">
+      <h2>¿Qué misión quieres hacer?</h2>
+      <div class="task-cards">
+        <button class="task-card card-a" onclick="launchTask('A1')">
+          <span class="card-key">[1]</span>
+          <span class="card-icon">🔍</span>
+          <span class="card-name">Encuentra el Objeto</span>
+          <span class="card-block">Bloque A · Atención</span>
+          <span class="card-pts">+15 pts</span>
+        </button>
+        <button class="task-card card-b" onclick="launchTask('B3')">
+          <span class="card-key">[2]</span>
+          <span class="card-icon">🚦</span>
+          <span class="card-name">Semáforo del Recreo</span>
+          <span class="card-block">Bloque B · Impulsividad</span>
+          <span class="card-pts">+40 pts</span>
+        </button>
+        <button class="task-card card-c" onclick="launchTask('C1')">
+          <span class="card-key">[3]</span>
+          <span class="card-icon">🪑</span>
+          <span class="card-name">Hora de Clase</span>
+          <span class="card-block">Bloque C · Regulación</span>
+          <span class="card-pts">+32 pts</span>
+        </button>
+      </div>
+      <p class="hint"><kbd>ESC</kbd> = explorar libremente</p>
+    </div>
+  </div>
+
+  <div id="screen-end" class="screen hidden">
+    <div class="modal">
+      <div id="end-icon" class="end-icon">✅</div>
+      <h2 id="end-title">¡Misión completada!</h2>
+      <p id="end-msg" class="end-msg"></p>
+      <p id="end-pts" class="end-pts"></p>
+      <p id="end-badge" class="end-badge"></p>
+      <button class="btn btn-primary" onclick="goSelectScreen()">Siguiente misión</button>
+      <p class="hint"><kbd>ENTER</kbd> = continuar</p>
+    </div>
+  </div>
+
+  <div id="screen-summary" class="screen hidden">
+    <div class="modal">
+      <h2>🏆 Sesión completada</h2>
+      <div id="sum-pts"    class="sum-row"></div>
+      <div id="sum-tasks"  class="sum-row"></div>
+      <div id="sum-streak" class="sum-row"></div>
+      <div id="sum-badges" class="sum-row"></div>
+      <div id="sum-clinic" class="sum-row sum-clinic"></div>
+      <button class="btn btn-primary" onclick="location.reload()">Nueva sesión</button>
+      <p class="hint"><kbd>ENTER</kbd> = nueva sesión</p>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <span id="hud-pts" class="hud-cell">⭐ 0</span>
+    <span id="hud-lvl" class="hud-cell">Nv.1 Nuevo</span>
+    <span id="hud-timer" class="hud-cell hud-timer"></span>
+  </div>
+
+  <!-- Barra de instrucción de tarea -->
+  <div id="task-bar" class="hidden"><span id="task-bar-text"></span></div>
+
+  <!-- Indicador semáforo (B3) -->
+  <div id="tl-indicator" class="hidden">
+    <div id="tl-red"   class="tl-light tl-red active"></div>
+    <div id="tl-green" class="tl-light tl-green"></div>
+    <p id="tl-msg">Espera...</p>
+  </div>
+
+  <!-- Indicador orbe (C1) -->
+  <div id="orb-indicator" class="hidden">
+    <div id="orb-circle"></div>
+    <p id="orb-label">Inhala...</p>
+    <p id="orb-hint">ESPACIO al exhalar</p>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="hidden"></div>
+
+</div>
+
+<!-- ══ ESCENA A-FRAME ══ -->
+<a-scene
+  renderer="antialias:true;colorManagement:true;physicallyCorrectLights:true"
+  shadow="type:pcfsoft"
+  vr-mode-ui="enabled:true"
+  loading-screen="enabled:false">
+
+  <a-assets>
+    <a-mixin id="desk-top"
+      geometry="primitive:box;width:0.9;height:0.04;depth:0.55"
+      material="color:#A0784A;roughness:0.8" shadow="cast:true;receive:true"></a-mixin>
+    <a-mixin id="desk-leg"
+      geometry="primitive:cylinder;radius:0.025;height:0.72"
+      material="color:#888;roughness:0.5;metalness:0.4" shadow="cast:true"></a-mixin>
+    <a-mixin id="chair-seat"
+      geometry="primitive:box;width:0.42;height:0.04;depth:0.38"
+      material="color:#8B4513;roughness:0.8" shadow="cast:true"></a-mixin>
+  </a-assets>
+
+  <!-- ══ ILUMINACIÓN ══ -->
+  <a-entity light="type:ambient;color:#FFF5E0;intensity:0.55"></a-entity>
+  <a-entity light="type:directional;color:#FFF8F0;intensity:0.7;castShadow:true;shadowMapWidth:2048;shadowMapHeight:2048;shadowCameraLeft:-9;shadowCameraRight:9;shadowCameraTop:9;shadowCameraBottom:-9"
+    position="-3 8 3"></a-entity>
+  <a-entity light="type:point;color:#FFE8C0;intensity:0.4;distance:10" position="0 3.8 0"></a-entity>
+  <a-entity light="type:point;color:#FFE8C0;intensity:0.3;distance:8"  position="0 3.8 -3"></a-entity>
+  <!-- Luz solar ventanas -->
+  <a-entity light="type:point;color:#FFE8A0;intensity:0.5;distance:9" position="-4.5 2.4 -2.5"></a-entity>
+  <!-- Fluorescentes -->
+  <a-entity light="type:point;color:#FFF8E0;intensity:0.3;distance:7" position="-2 3.7 0"></a-entity>
+  <a-entity light="type:point;color:#FFF8E0;intensity:0.3;distance:7" position=" 2 3.7 0"></a-entity>
+
+  <!-- ══ SUELO ══ -->
+  <a-box width="12" height="0.12" depth="12" position="0 -0.06 0"
+    material="color:#D4C09E;roughness:0.95;metalness:0.02" shadow="receive:true"></a-box>
+  <!-- Rejillas de baldosas -->
+  <a-entity position="0 0.01 0">
+    <a-box width="12" height="0.005" depth="0.03" position="0 0 -3" color="#C0AC8A"></a-box>
+    <a-box width="12" height="0.005" depth="0.03" position="0 0  0" color="#C0AC8A"></a-box>
+    <a-box width="12" height="0.005" depth="0.03" position="0 0  3" color="#C0AC8A"></a-box>
+    <a-box width="0.03" height="0.005" depth="12" position="-3 0 0" color="#C0AC8A"></a-box>
+    <a-box width="0.03" height="0.005" depth="12" position=" 0 0 0" color="#C0AC8A"></a-box>
+    <a-box width="0.03" height="0.005" depth="12" position=" 3 0 0" color="#C0AC8A"></a-box>
+  </a-entity>
+
+  <!-- ══ TECHO ══ -->
+  <a-box width="12" height="0.15" depth="12" position="0 4.07 0"
+    material="color:#F5F0E8;roughness:0.9"></a-box>
+  <!-- Paneles fluorescentes -->
+  <a-box width="0.6" height="0.06" depth="2.0" position="-2 3.98 0"
+    material="color:#FFFDE7;emissive:#FFFDE7;emissiveIntensity:0.6;roughness:0.1"></a-box>
+  <a-box width="0.6" height="0.06" depth="2.0" position=" 2 3.98 0"
+    material="color:#FFFDE7;emissive:#FFFDE7;emissiveIntensity:0.6;roughness:0.1"></a-box>
+
+  <!-- ══ PAREDES ══ -->
+  <!-- Trasera -->
+  <a-box width="12" height="4" depth="0.2" position="0 2 -5"
+    material="color:#E8DCC8;roughness:0.95" shadow="receive:true"></a-box>
+  <a-box width="12" height="0.8" depth="0.22" position="0 0.4 -5"
+    material="color:#8B7355;roughness:0.9"></a-box>
+  <!-- Delantera -->
+  <a-box width="12" height="4" depth="0.2" position="0 2 5"
+    material="color:#E8DCC8;roughness:0.95"></a-box>
+  <a-box width="12" height="0.8" depth="0.22" position="0 0.4 5"
+    material="color:#8B7355;roughness:0.9"></a-box>
+  <!-- Izquierda -->
+  <a-box width="0.2" height="4" depth="12" position="-6 2 0"
+    material="color:#E8DCC8;roughness:0.95" shadow="receive:true"></a-box>
+  <a-box width="0.22" height="0.8" depth="12" position="-6 0.4 0"
+    material="color:#8B7355;roughness:0.9"></a-box>
+  <!-- Ventanas izquierda -->
+  <a-box width="0.08" height="1.4" depth="1.8" position="-5.96 2.4 -2.5"
+    material="color:#B0D4E8;opacity:0.55;transparent:true;roughness:0.05"></a-box>
+  <a-box width="0.08" height="1.4" depth="1.8" position="-5.96 2.4  0.8"
+    material="color:#B0D4E8;opacity:0.55;transparent:true;roughness:0.05"></a-box>
+  <!-- Marcos ventanas -->
+  <a-box width="0.1" height="1.48" depth="0.08" position="-5.93 2.4 -3.42" color="#D4C09E"></a-box>
+  <a-box width="0.1" height="1.48" depth="0.08" position="-5.93 2.4 -1.62" color="#D4C09E"></a-box>
+  <a-box width="0.1" height="1.48" depth="0.08" position="-5.93 2.4 -0.12" color="#D4C09E"></a-box>
+  <a-box width="0.1" height="1.48" depth="0.08" position="-5.93 2.4  1.68" color="#D4C09E"></a-box>
+  <!-- Derecha -->
+  <a-box width="0.2" height="4" depth="12" position="6 2 0"
+    material="color:#E8DCC8;roughness:0.95"></a-box>
+  <a-box width="0.22" height="0.8" depth="12" position="6 0.4 0"
+    material="color:#8B7355;roughness:0.9"></a-box>
+
+  <!-- ══ PIZARRÓN ══ -->
+  <a-entity position="0 2.3 -4.85">
+    <a-box width="5.0" height="1.6" depth="0.06"
+      material="color:#1A4A2E;roughness:0.95" shadow="cast:true;receive:true"></a-box>
+    <a-box width="5.12" height="0.08" depth="0.08" position="0  0.84 0" color="#8B5E20"></a-box>
+    <a-box width="5.12" height="0.08" depth="0.08" position="0 -0.84 0" color="#8B5E20"></a-box>
+    <a-box width="0.08" height="1.72" depth="0.08" position="-2.56 0 0" color="#8B5E20"></a-box>
+    <a-box width="0.08" height="1.72" depth="0.08" position=" 2.56 0 0" color="#8B5E20"></a-box>
+    <a-box width="5.0" height="0.06" depth="0.14" position="0 -0.88 0.06" color="#7A5230"></a-box>
+    <a-text id="board-text" value="¡Bienvenidos a FocusClass VR!"
+      position="0 0.22 0.06" align="center" color="#FFFFFF" width="4.2"
+      wrap-count="38" font="exo2bold"></a-text>
+    <a-text value="Matemáticas · Español · Ciencias"
+      position="0 -0.42 0.06" align="center" color="#88BB88" width="3.4"></a-text>
+  </a-entity>
+
+  <!-- ══ ESCRITORIO PROFESOR ══ -->
+  <a-entity position="0 0 -3.8">
+    <a-box width="1.6" height="0.06" depth="0.7" position="0 0.78 0"
+      material="color:#6B4B2A;roughness:0.7" shadow="cast:true;receive:true"></a-box>
+    <a-box width="1.58" height="0.01" depth="0.68" position="0 0.815 0"
+      material="color:#8B6030;roughness:0.5"></a-box>
+    <a-box width="0.06" height="0.78" depth="0.06" position="-0.74 0.39 -0.3" color="#5A3A18"></a-box>
+    <a-box width="0.06" height="0.78" depth="0.06" position=" 0.74 0.39 -0.3" color="#5A3A18"></a-box>
+    <a-box width="0.06" height="0.78" depth="0.06" position="-0.74 0.39  0.3" color="#5A3A18"></a-box>
+    <a-box width="0.06" height="0.78" depth="0.06" position=" 0.74 0.39  0.3" color="#5A3A18"></a-box>
+    <a-box width="0.22" height="0.28" depth="0.18" position="0.5 0.87 -0.05"
+      material="color:#4A6AB0;roughness:0.8"></a-box>
+    <a-cylinder radius="0.035" height="0.16" position="-0.4 0.89 0.05"
+      material="color:#F5F5DC;roughness:0.9"></a-cylinder>
+    <a-cylinder radius="0.035" height="0.16" position="-0.32 0.89 0.05"
+      material="color:#FF6B35;roughness:0.9"></a-cylinder>
+  </a-entity>
+
+  <!-- ══ PROFESOR VIRTUAL ══ -->
+  <a-entity position="0 0 -4.1">
+    <a-box width="0.42" height="0.62" depth="0.22" position="0 1.38 0"
+      material="color:#2C5282;roughness:0.9" shadow="cast:true"></a-box>
+    <a-box width="0.44" height="0.18" depth="0.1" position="0 1.55 0.1"
+      material="color:#FFFFFF;roughness:0.95"></a-box>
+    <a-box width="0.07" height="0.32" depth="0.04" position="0 1.44 0.12"
+      material="color:#C0392B;roughness:0.8"></a-box>
+    <a-box width="0.32" height="0.35" depth="0.28" position="0 1.88 0"
+      material="color:#F4C28E;roughness:0.8" shadow="cast:true"></a-box>
+    <a-box width="0.34" height="0.12" depth="0.30" position="0 2.06 -0.02"
+      material="color:#3D2B1F;roughness:0.95"></a-box>
+    <a-box width="0.06" height="0.04" depth="0.04" position="-0.08 1.92 0.14" color="#2C1810"></a-box>
+    <a-box width="0.06" height="0.04" depth="0.04" position=" 0.08 1.92 0.14" color="#2C1810"></a-box>
+    <a-torus radius="0.056" radius-tubular="0.007" position="-0.08 1.92 0.15"
+      rotation="90 0 0" material="color:#4A3020;roughness:0.6;metalness:0.5"></a-torus>
+    <a-torus radius="0.056" radius-tubular="0.007" position=" 0.08 1.92 0.15"
+      rotation="90 0 0" material="color:#4A3020;roughness:0.6;metalness:0.5"></a-torus>
+    <a-box width="0.04" height="0.007" depth="0.007" position="0 1.92 0.15" color="#4A3020"></a-box>
+    <a-box width="0.04" height="0.05" depth="0.06" position="0 1.86 0.15"
+      material="color:#E8B07A;roughness:0.8"></a-box>
+    <a-box width="0.1" height="0.025" depth="0.04" position="0 1.77 0.14" color="#C08060"></a-box>
+    <a-box width="0.14" height="0.48" depth="0.14" position="-0.29 1.35 0"
+      material="color:#2C5282;roughness:0.9" shadow="cast:true"></a-box>
+    <a-box width="0.14" height="0.48" depth="0.14" position=" 0.29 1.35 0"
+      material="color:#2C5282;roughness:0.9" shadow="cast:true"></a-box>
+    <a-box width="0.13" height="0.14" depth="0.12" position="-0.29 1.06 0"
+      material="color:#F4C28E;roughness:0.8"></a-box>
+    <a-box width="0.13" height="0.14" depth="0.12" position=" 0.29 1.06 0"
+      material="color:#F4C28E;roughness:0.8"></a-box>
+    <a-box width="0.18" height="0.72" depth="0.18" position="-0.11 0.72 0"
+      material="color:#1A3A5C;roughness:0.9" shadow="cast:true"></a-box>
+    <a-box width="0.18" height="0.72" depth="0.18" position=" 0.11 0.72 0"
+      material="color:#1A3A5C;roughness:0.9" shadow="cast:true"></a-box>
+    <a-box width="0.2" height="0.1" depth="0.28" position="-0.11 0.3 0.05"
+      material="color:#1A1A1A;roughness:0.7;metalness:0.3" shadow="cast:true"></a-box>
+    <a-box width="0.2" height="0.1" depth="0.28" position=" 0.11 0.3 0.05"
+      material="color:#1A1A1A;roughness:0.7;metalness:0.3" shadow="cast:true"></a-box>
+    <a-cylinder radius="0.014" height="0.8" position="0.29 1.42 0.18"
+      rotation="-30 0 10" material="color:#4A3020;roughness:0.7"></a-cylinder>
+  </a-entity>
+
+  <!-- ══ PUPITRES + ALUMNOS ══ -->
+  <!-- Fila 1 izquierda -->
+  <a-entity position="-2.8 0 -0.8">
+    <a-box mixin="desk-top" position="0 0.75 0"></a-box>
+    <a-cylinder mixin="desk-leg" position="-0.38 0.36 -0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position=" 0.38 0.36 -0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position="-0.38 0.36  0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position=" 0.38 0.36  0.2"></a-cylinder>
+    <a-box mixin="chair-seat" position="0 0.42 0.56"></a-box>
+    <a-box width="0.42" height="0.44" depth="0.04" position="0 0.66 0.76"
+      material="color:#8B4513;roughness:0.8"></a-box>
+    <a-box width="0.22" height="0.01" depth="0.3" position="0.1 0.78 -0.06"
+      material="color:#FFFDE7;roughness:0.9"></a-box>
+    <!-- Estudiante -->
+    <a-box width="0.28" height="0.44" depth="0.18" position="0 1.14 0.56"
+      material="color:#E74C3C;roughness:0.9" shadow="cast:true"></a-box>
+    <a-box width="0.26" height="0.28" depth="0.22" position="0 1.72 0.56"
+      material="color:#FAD7A0;roughness:0.8"></a-box>
+    <a-box width="0.28" height="0.1" depth="0.24" position="0 1.88 0.56"
+      material="color:#5D4037;roughness:0.95"></a-box>
+  </a-entity>
+
+  <!-- Fila 1 centro -->
+  <a-entity position="0 0 -0.8">
+    <a-box mixin="desk-top" position="0 0.75 0"></a-box>
+    <a-cylinder mixin="desk-leg" position="-0.38 0.36 -0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position=" 0.38 0.36 -0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position="-0.38 0.36  0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position=" 0.38 0.36  0.2"></a-cylinder>
+    <a-box mixin="chair-seat" position="0 0.42 0.56"></a-box>
+    <a-box width="0.42" height="0.44" depth="0.04" position="0 0.66 0.76"
+      material="color:#8B4513;roughness:0.8"></a-box>
+    <a-box width="0.22" height="0.01" depth="0.3" position="0.1 0.78 -0.06"
+      material="color:#FFFDE7;roughness:0.9"></a-box>
+    <a-box width="0.28" height="0.44" depth="0.18" position="0 1.14 0.56"
+      material="color:#3498DB;roughness:0.9" shadow="cast:true"></a-box>
+    <a-box width="0.26" height="0.28" depth="0.22" position="0 1.72 0.56"
+      material="color:#FAD7A0;roughness:0.8"></a-box>
+    <a-box width="0.28" height="0.1" depth="0.24" position="0 1.88 0.56"
+      material="color:#2C1810;roughness:0.95"></a-box>
+  </a-entity>
+
+  <!-- Fila 1 derecha -->
+  <a-entity position="2.8 0 -0.8">
+    <a-box mixin="desk-top" position="0 0.75 0"></a-box>
+    <a-cylinder mixin="desk-leg" position="-0.38 0.36 -0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position=" 0.38 0.36 -0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position="-0.38 0.36  0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position=" 0.38 0.36  0.2"></a-cylinder>
+    <a-box mixin="chair-seat" position="0 0.42 0.56"></a-box>
+    <a-box width="0.42" height="0.44" depth="0.04" position="0 0.66 0.76"
+      material="color:#8B4513;roughness:0.8"></a-box>
+    <a-box width="0.22" height="0.01" depth="0.3" position="0.1 0.78 -0.06"
+      material="color:#FFFDE7;roughness:0.9"></a-box>
+    <a-box width="0.28" height="0.44" depth="0.18" position="0 1.14 0.56"
+      material="color:#2ECC71;roughness:0.9" shadow="cast:true"></a-box>
+    <a-box width="0.26" height="0.28" depth="0.22" position="0 1.72 0.56"
+      material="color:#FAD7A0;roughness:0.8"></a-box>
+    <a-box width="0.28" height="0.1" depth="0.24" position="0 1.88 0.56"
+      material="color:#5D4037;roughness:0.95"></a-box>
+  </a-entity>
+
+  <!-- Fila 2 izquierda -->
+  <a-entity position="-2.8 0 1.4">
+    <a-box mixin="desk-top" position="0 0.75 0"></a-box>
+    <a-cylinder mixin="desk-leg" position="-0.38 0.36 -0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position=" 0.38 0.36 -0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position="-0.38 0.36  0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position=" 0.38 0.36  0.2"></a-cylinder>
+    <a-box mixin="chair-seat" position="0 0.42 0.56"></a-box>
+    <a-box width="0.42" height="0.44" depth="0.04" position="0 0.66 0.76"
+      material="color:#8B4513;roughness:0.8"></a-box>
+  </a-entity>
+
+  <!-- Fila 2 centro -->
+  <a-entity position="0 0 1.4">
+    <a-box mixin="desk-top" position="0 0.75 0"></a-box>
+    <a-cylinder mixin="desk-leg" position="-0.38 0.36 -0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position=" 0.38 0.36 -0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position="-0.38 0.36  0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position=" 0.38 0.36  0.2"></a-cylinder>
+    <a-box mixin="chair-seat" position="0 0.42 0.56"></a-box>
+    <a-box width="0.42" height="0.44" depth="0.04" position="0 0.66 0.76"
+      material="color:#8B4513;roughness:0.8"></a-box>
+  </a-entity>
+
+  <!-- Fila 2 derecha -->
+  <a-entity position="2.8 0 1.4">
+    <a-box mixin="desk-top" position="0 0.75 0"></a-box>
+    <a-cylinder mixin="desk-leg" position="-0.38 0.36 -0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position=" 0.38 0.36 -0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position="-0.38 0.36  0.2"></a-cylinder>
+    <a-cylinder mixin="desk-leg" position=" 0.38 0.36  0.2"></a-cylinder>
+    <a-box mixin="chair-seat" position="0 0.42 0.56"></a-box>
+    <a-box width="0.42" height="0.44" depth="0.04" position="0 0.66 0.76"
+      material="color:#8B4513;roughness:0.8"></a-box>
+  </a-entity>
+
+  <!-- ══ ESTANTERÍA ══ -->
+  <a-entity position="5.62 0 -2.2">
+    <a-box width="0.18" height="2.6" depth="0.9" position="0 1.3 0"
+      material="color:#8B6030;roughness:0.8" shadow="cast:true"></a-box>
+    <a-box width="0.18" height="0.04" depth="0.9" position="0 0.8 0" color="#9B7040"></a-box>
+    <a-box width="0.18" height="0.04" depth="0.9" position="0 1.4 0" color="#9B7040"></a-box>
+    <a-box width="0.18" height="0.04" depth="0.9" position="0 2.0 0" color="#9B7040"></a-box>
+    <a-box width="0.18" height="0.04" depth="0.9" position="0 2.6 0" color="#9B7040"></a-box>
+    <a-box width="0.12" height="0.26" depth="0.18" position="0.01 0.97 -0.22" material="color:#E74C3C;roughness:0.8"></a-box>
+    <a-box width="0.12" height="0.22" depth="0.18" position="0.01 0.95 -0.02" material="color:#3498DB;roughness:0.8"></a-box>
+    <a-box width="0.12" height="0.28" depth="0.18" position="0.01 0.98  0.18" material="color:#2ECC71;roughness:0.8"></a-box>
+    <a-box width="0.12" height="0.24" depth="0.18" position="0.01 1.58 -0.22" material="color:#F39C12;roughness:0.8"></a-box>
+    <a-box width="0.12" height="0.26" depth="0.18" position="0.01 1.59 -0.02" material="color:#9B59B6;roughness:0.8"></a-box>
+    <a-box width="0.12" height="0.22" depth="0.18" position="0.01 1.57  0.18" material="color:#1ABC9C;roughness:0.8"></a-box>
+  </a-entity>
+
+  <!-- ══ SEMÁFORO ══ -->
+  <a-entity position="3.5 0 4.6">
+    <a-cylinder radius="0.04" height="2.8" position="0 1.4 0" color="#333"></a-cylinder>
+    <a-box width="0.24" height="0.7" depth="0.22" position="0 2.65 0"
+      material="color:#1A1A1A;roughness:0.9;metalness:0.4"></a-box>
+    <a-sphere id="tl3d-red"   radius="0.09" position="0 2.82 0.12"
+      material="color:#FF0000;emissive:#FF0000;emissiveIntensity:1.8"></a-sphere>
+    <a-sphere id="tl3d-green" class="selectable" radius="0.09" position="0 2.48 0.12"
+      material="color:#003300;emissive:#003300;emissiveIntensity:0.1"></a-sphere>
+  </a-entity>
+
+  <!-- ══ PUERTA ══ -->
+  <a-entity position="4.5 0 4.88">
+    <a-box width="1.1" height="2.4" depth="0.2" position="0 1.2 0" color="#7A5C2E"></a-box>
+    <a-box width="0.96" height="2.22" depth="0.08" position="0 1.11 0"
+      material="color:#8B6914;roughness:0.7"></a-box>
+    <a-box width="0.38" height="0.36" depth="0.06" position="0 1.62 0.05"
+      material="color:#87CEEB;opacity:0.7;transparent:true"></a-box>
+    <a-cylinder radius="0.022" height="0.14" position="0.36 1.1 0.08"
+      rotation="0 0 90" material="color:#C0A050;roughness:0.3;metalness:0.7"></a-cylinder>
+  </a-entity>
+
+  <!-- ══ PLANTA ══ -->
+  <a-entity position="-5.5 0 4.4">
+    <a-cylinder radius="0.14" height="0.3" position="0 0.15 0" color="#C47840"></a-cylinder>
+    <a-sphere radius="0.32" position="0 0.64 0" material="color:#27AE60;roughness:0.9"></a-sphere>
+    <a-sphere radius="0.22" position="0.18 0.8  0" material="color:#2ECC71;roughness:0.9"></a-sphere>
+    <a-sphere radius="0.20" position="-0.14 0.82 0.12" material="color:#1E8449;roughness:0.9"></a-sphere>
+  </a-entity>
+
+  <!-- ══ RELOJ ══ -->
+  <a-entity position="5.88 2.8 -1.0" rotation="0 -90 0">
+    <a-cylinder radius="0.27" height="0.05" material="color:#F5F0E8;roughness:0.7"></a-cylinder>
+    <a-torus radius="0.26" radius-tubular="0.016" material="color:#333;roughness:0.5"></a-torus>
+    <a-box id="clock-hour" width="0.032" height="0.15" depth="0.022" position="0 0.075 0.03" color="#222"></a-box>
+    <a-box id="clock-min"  width="0.022" height="0.21" depth="0.022" position="0 0.105 0.03" color="#222"></a-box>
+    <a-sphere radius="0.022" position="0 0 0.032" color="#CC0000"></a-sphere>
+  </a-entity>
+
+  <!-- ══ TABLÓN DE ANUNCIOS ══ -->
+  <a-entity position="5.88 2.0 0.8" rotation="0 -90 0">
+    <a-plane width="1.2" height="0.9" material="color:#C8A050;roughness:0.95"></a-plane>
+    <a-box width="1.22" height="0.92" depth="0.04" position="0 0 -0.025" color="#8B5E20"></a-box>
+    <a-plane position="-0.3 0.18 0.01" width="0.35" height="0.28" rotation="0 0 -3"
+      material="color:#FAFAFA;roughness:0.9"></a-plane>
+    <a-plane position=" 0.22 0.1  0.01" width="0.3"  height="0.24" rotation="0 0  5"
+      material="color:#FFE8AA;roughness:0.9"></a-plane>
+    <a-plane position="-0.1 -0.22 0.01" width="0.32" height="0.26" rotation="0 0  2"
+      material="color:#AAEEFF;roughness:0.9"></a-plane>
+    <a-sphere radius="0.025" position="-0.3  0.32 0.02" color="#DD2222"></a-sphere>
+    <a-sphere radius="0.025" position=" 0.22 0.23 0.02" color="#2222DD"></a-sphere>
+    <a-sphere radius="0.025" position="-0.1 -0.08 0.02" color="#22AA22"></a-sphere>
+  </a-entity>
+
+  <!-- ══ OBJETOS TAREA A1 (ocultos por defecto) ══ -->
+  <!-- Lápiz — escondido en el pupitre trasero derecho, sin brillo ni label -->
+  <a-entity id="a1-pencil" visible="false" position="2.52 0.784 1.22" rotation="0 42 0">
+    <!-- Cuerpo amarillo -->
+    <a-cylinder radius="0.013" height="0.195" rotation="90 0 0"
+      material="color:#F5C500;roughness:0.55;metalness:0.05"></a-cylinder>
+    <!-- Líneas decorativas del cuerpo -->
+    <a-cylinder radius="0.0135" height="0.003" position="0 0 -0.07" rotation="90 0 0"
+      material="color:#DCA800;roughness:0.5"></a-cylinder>
+    <a-cylinder radius="0.0135" height="0.003" position="0 0 0.0" rotation="90 0 0"
+      material="color:#DCA800;roughness:0.5"></a-cylinder>
+    <a-cylinder radius="0.0135" height="0.003" position="0 0 0.07" rotation="90 0 0"
+      material="color:#DCA800;roughness:0.5"></a-cylinder>
+    <!-- Punta de madera (cono truncado) -->
+    <a-cone radius-bottom="0.013" radius-top="0.004" height="0.032" position="0 0 -0.114" rotation="90 0 0"
+      material="color:#D4956A;roughness:0.88"></a-cone>
+    <!-- Punta de grafito -->
+    <a-cone radius-bottom="0.004" radius-top="0.001" height="0.014" position="0 0 -0.137" rotation="90 0 0"
+      material="color:#252525;roughness:0.45"></a-cone>
+    <!-- Virola metálica (silver band) -->
+    <a-cylinder radius="0.0145" height="0.016" position="0 0 0.1035" rotation="90 0 0"
+      material="color:#C8C8C8;roughness:0.15;metalness:0.85"></a-cylinder>
+    <!-- Borrador rosa -->
+    <a-cylinder radius="0.013" height="0.022" position="0 0 0.119" rotation="90 0 0"
+      material="color:#F0A0B0;roughness:0.88"></a-cylinder>
+    <!-- Hitbox invisible (caja a lo largo del lápiz) -->
+    <a-box id="hit-pencil" class="selectable"
+      width="0.06" height="0.06" depth="0.32"
+      material="opacity:0;transparent:true;shader:flat"></a-box>
+  </a-entity>
+
+  <a-entity id="a1-eraser" visible="false" position="1.0 1.6 -1.0">
+    <a-box id="hit-eraser" class="selectable"
+      width="0.38" height="0.18" depth="0.22"
+      material="color:#FF9EAA;roughness:0.9;emissive:#FF9EAA;emissiveIntensity:0.15"></a-box>
+    <a-text value="🧹 BORRADOR" position="0 0.35 0" align="center" color="#FFFFFF" width="2.0" font="exo2bold"></a-text>
+    <a-animation attribute="position" dur="2500" to="1.0 1.72 -1.0" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+  </a-entity>
+
+  <a-entity id="a1-ruler" visible="false" position="-2.5 1.6 1.2">
+    <a-box id="hit-ruler" class="selectable"
+      width="0.82" height="0.1" depth="0.18"
+      material="color:#C8A850;roughness:0.6;emissive:#C8A850;emissiveIntensity:0.15"></a-box>
+    <a-text value="📏 REGLA" position="0 0.28 0" align="center" color="#FFFFFF" width="2.0" font="exo2bold"></a-text>
+    <a-animation attribute="position" dur="3000" to="-2.5 1.72 1.2" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+  </a-entity>
+
+  <a-entity id="a1-scissors" visible="false" position="2.5 1.6 0.5">
+    <a-box id="hit-scissors" class="selectable"
+      width="0.18" height="0.52" depth="0.1"
+      material="color:#999;roughness:0.4;metalness:0.7;emissive:#999;emissiveIntensity:0.1" rotation="0 0 15"></a-box>
+    <a-text value="✂️ TIJERAS" position="0 0.5 0" align="center" color="#FFFFFF" width="2.0" font="exo2bold"></a-text>
+    <a-animation attribute="position" dur="1800" to="2.8 1.72 0.5" direction="alternate" repeat="indefinite" easing="easeInOutSine"></a-animation>
+  </a-entity>
+
+  <!-- ══ ORBE RESPIRACIÓN (C1, oculto) ══ -->
+  <a-entity id="c1-orb" visible="false" position="0 1.8 0">
+    <a-sphere id="c1-sphere" class="selectable" radius="0.4"
+      material="color:#00B4D8;emissive:#00B4D8;emissiveIntensity:0.4;opacity:0.8;transparent:true"></a-sphere>
+    <a-entity light="type:point;color:#00B4D8;intensity:0.6;distance:4"></a-entity>
+  </a-entity>
+
+  <!-- ══ CÁMARA ══ -->
+  <a-entity id="rig" position="0 0 3.5">
+    <a-camera id="cam"
+      look-controls="reverseMouseDrag:false"
+      wasd-controls="enabled:true;acceleration:18"
+      fov="75" near="0.08" far="100"
+      position="0 1.6 0">
+      <a-cursor
+        raycaster="objects:.selectable;far:8"
+        material="color:#FF6B35;shader:flat;opacity:0.85"
+        geometry="primitive:ring;radiusInner:0.013;radiusOuter:0.021"
+        fuse="false">
+      </a-cursor>
+    </a-camera>
+  </a-entity>
+
+</a-scene>
+
+<script src="game.js"></script>
+</body>
+</html>

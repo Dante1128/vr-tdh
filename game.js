@@ -8,7 +8,6 @@ const S = {
 };
 const Metrics = { distractors: 0, premature: 0 };
 const TaskResults = {};
-const GEMINI_KEY = 'GEMINI_KEY';
 const LEVEL_NAMES = ['Nv.1 Nuevo', 'Nv.2 Atento', 'Nv.3 Curioso', 'Nv.4 Maestro'];
 
 // ─── AUDIO ────────────────────────────────────────
